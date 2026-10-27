@@ -6,6 +6,16 @@ export default {
     orders: 'Orders',
     finance: 'Finance',
     demandForecast: 'Demand Forecast',
+    restocking: 'Restocking',
+    reports: 'Reports',
+    sections: {
+      operations: 'Operations',
+      insights: 'Insights'
+    },
+    mainNavigation: 'Main navigation',
+    collapseSidebar: 'Collapse sidebar',
+    expandSidebar: 'Expand sidebar',
+    openMenu: 'Open menu',
     companyName: 'Catalyst Components',
     subtitle: 'Inventory Management System'
   },
@@ -103,6 +113,18 @@ export default {
 
   // Orders
   orders: {
+    submittedOrders: 'Submitted Orders',
+    submittedEmpty: 'No restocking orders have been submitted yet.',
+    submittedLoadFailed: 'Failed to load submitted orders',
+    submittedTable: {
+      orderNumber: 'Order #',
+      submittedDate: 'Submitted',
+      items: 'Items',
+      totalValue: 'Total Value',
+      leadTime: 'Lead Time (days)',
+      expectedDelivery: 'Expected Delivery',
+      status: 'Status'
+    },
     title: 'Orders',
     description: 'View and manage customer orders',
     allOrders: 'All Orders',
@@ -188,6 +210,39 @@ export default {
     }
   },
 
+  // Restocking
+  restocking: {
+    title: 'Restocking',
+    description: 'Recommend purchases that fit your budget, prioritised by demand trend and gap',
+    budget: 'Budget',
+    budgetSlider: 'Restocking budget',
+    recommendedTotal: 'Recommended Total',
+    remainingBudget: 'Remaining Budget',
+    itemsAndUnits: 'Items / Units',
+    itemsUnits: '{items} items / {units} units',
+    fullRestockCost: 'Full restock cost: {amount}',
+    recommendations: 'Recommendations',
+    table: {
+      sku: 'SKU',
+      itemName: 'Item',
+      trend: 'Trend',
+      demandGap: 'Demand Gap',
+      recommendedQty: 'Recommended Qty',
+      unitCost: 'Unit Cost',
+      lineTotal: 'Line Total',
+      leadTime: 'Lead Time (days)'
+    },
+    emptyTitle: 'No recommendations for this budget',
+    emptyHint: 'Increase the budget to see recommended purchases.',
+    nothingToRestock: 'No items currently need restocking.',
+    placeOrder: 'Place Order',
+    placing: 'Placing order...',
+    orderSuccess: 'Order {orderNumber} placed. Expected delivery: {date}.',
+    viewOrders: 'View in Orders',
+    orderFailed: 'Failed to place order',
+    loadFailed: 'Failed to load recommendations'
+  },
+
   // Filters
   filters: {
     timePeriod: 'Time Period',
@@ -200,6 +255,7 @@ export default {
 
   // Statuses
   status: {
+    submitted: 'Submitted',
     delivered: 'Delivered',
     shipped: 'Shipped',
     processing: 'Processing',

@@ -1,42 +1,27 @@
 <template>
-  <div class="app">
-    <header class="top-nav">
-      <div class="nav-container">
-        <div class="logo">
-          <h1>{{ t('nav.companyName') }}</h1>
-          <span class="subtitle">{{ t('nav.subtitle') }}</span>
-        </div>
-        <nav class="nav-tabs">
-          <router-link to="/" :class="{ active: $route.path === '/' }">
-            {{ t('nav.overview') }}
-          </router-link>
-          <router-link to="/inventory" :class="{ active: $route.path === '/inventory' }">
-            {{ t('nav.inventory') }}
-          </router-link>
-          <router-link to="/orders" :class="{ active: $route.path === '/orders' }">
-            {{ t('nav.orders') }}
-          </router-link>
-          <router-link to="/spending" :class="{ active: $route.path === '/spending' }">
-            {{ t('nav.finance') }}
-          </router-link>
-          <router-link to="/demand" :class="{ active: $route.path === '/demand' }">
-            {{ t('nav.demandForecast') }}
-          </router-link>
-          <router-link to="/reports" :class="{ active: $route.path === '/reports' }">
-            Reports
-          </router-link>
-        </nav>
+  <div :class="['app-shell', `mode-${mode}`, { 'sidebar-collapsed': iconsOnly }]">
+    <AppSidebar
+      :collapsed="iconsOnly"
+      :mobile-open="mobileOpen"
+      :mode="mode"
+      :overlay="overlayOpen"
+      @toggle-collapse="toggleCollapsed"
+    />
+    <div v-if="mobileOpen || overlayOpen" class="sidebar-backdrop" @click="closeTransient" />
+
+    <div class="app-main">
+      <AppTopbar :title="pageTitle" :mobile-open="mobileOpen" @open-menu="mobileOpen = true">
         <LanguageSwitcher />
         <ProfileMenu
           @show-profile-details="showProfileDetails = true"
           @show-tasks="showTasks = true"
         />
-      </div>
-    </header>
-    <FilterBar />
-    <main class="main-content">
-      <router-view />
-    </main>
+      </AppTopbar>
+      <FilterBar />
+      <main class="app-content">
+        <router-view />
+      </main>
+    </div>
 
     <ProfileDetailsModal
       :is-open="showProfileDetails"
@@ -55,7 +40,8 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { api } from './api'
 import { useAuth } from './composables/useAuth'
 import { useI18n } from './composables/useI18n'
@@ -64,6 +50,10 @@ import ProfileMenu from './components/ProfileMenu.vue'
 import ProfileDetailsModal from './components/ProfileDetailsModal.vue'
 import TasksModal from './components/TasksModal.vue'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
+import AppSidebar from './components/layout/AppSidebar.vue'
+import AppTopbar from './components/layout/AppTopbar.vue'
+import { findNavItem } from './components/layout/navItems'
+import { PHONE_QUERY, WIDE_QUERY } from './components/layout/breakpoints'
 
 export default {
   name: 'App',
@@ -72,11 +62,14 @@ export default {
     ProfileMenu,
     ProfileDetailsModal,
     TasksModal,
-    LanguageSwitcher
+    LanguageSwitcher,
+    AppSidebar,
+    AppTopbar
   },
   setup() {
     const { currentUser } = useAuth()
     const { t } = useI18n()
+    const route = useRoute()
     const showProfileDetails = ref(false)
     const showTasks = ref(false)
     const apiTasks = ref([])
@@ -146,7 +139,71 @@ export default {
       }
     }
 
-    onMounted(loadTasks)
+    // Three modes, driven by matchMedia (see layout/breakpoints.js):
+    //   phone   (<640)      off-canvas drawer, labels always shown
+    //   compact (640-1279)  icons-only rail; expanding is a temporary overlay
+    //   wide    (>=1280)    expanded by default; manual collapse is persisted
+    const STORAGE_KEY = 'sidebar-collapsed'
+    const phoneQuery = window.matchMedia(PHONE_QUERY)
+    const wideQuery = window.matchMedia(WIDE_QUERY)
+    const computeMode = () => (phoneQuery.matches ? 'phone' : wideQuery.matches ? 'wide' : 'compact')
+    // Initialised synchronously so the first paint already has the right layout.
+    const mode = ref(computeMode())
+
+    // Wide-mode preference; only the wide toggle ever writes it.
+    const collapsed = ref(localStorage.getItem(STORAGE_KEY) === 'true')
+    // Compact overlay and phone drawer are temporary and never persisted.
+    const overlayOpen = ref(false)
+    const mobileOpen = ref(false)
+
+    // Visible icons-only state: wide uses the stored preference, compact is a
+    // rail unless the overlay is open, phone drawer always shows labels.
+    const iconsOnly = computed(() => {
+      if (mode.value === 'wide') return collapsed.value
+      if (mode.value === 'compact') return !overlayOpen.value
+      return false
+    })
+
+    const toggleCollapsed = () => {
+      if (mode.value === 'wide') {
+        collapsed.value = !collapsed.value
+        localStorage.setItem(STORAGE_KEY, String(collapsed.value))
+      } else if (mode.value === 'compact') {
+        overlayOpen.value = !overlayOpen.value
+      }
+    }
+
+    const closeTransient = () => {
+      mobileOpen.value = false
+      overlayOpen.value = false
+    }
+
+    const onBreakpoint = () => {
+      mode.value = computeMode()
+      // Any mode change drops transient state so it can't reappear later.
+      closeTransient()
+    }
+
+    // Navigating closes the drawer/overlay; Escape too.
+    watch(() => route.fullPath, closeTransient)
+    const onKeydown = (e) => { if (e.key === 'Escape') closeTransient() }
+
+    const pageTitle = computed(() => {
+      const item = findNavItem(route.path)
+      return item ? t(item.labelKey) : ''
+    })
+
+    onMounted(() => {
+      loadTasks()
+      phoneQuery.addEventListener('change', onBreakpoint)
+      wideQuery.addEventListener('change', onBreakpoint)
+      window.addEventListener('keydown', onKeydown)
+    })
+    onBeforeUnmount(() => {
+      phoneQuery.removeEventListener('change', onBreakpoint)
+      wideQuery.removeEventListener('change', onBreakpoint)
+      window.removeEventListener('keydown', onKeydown)
+    })
 
     return {
       t,
@@ -155,332 +212,283 @@ export default {
       tasks,
       addTask,
       deleteTask,
-      toggleTask
+      toggleTask,
+      mode,
+      iconsOnly,
+      overlayOpen,
+      toggleCollapsed,
+      closeTransient,
+      mobileOpen,
+      pageTitle
     }
   }
 }
 </script>
 
 <style>
+/* Kept: views rely on the zero-margin reset for headings, paragraphs and lists. */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: #f8fafc;
-  color: #1e293b;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-.app {
-  display: flex;
-  flex-direction: column;
+/* ---- Shell ---- */
+.app-shell {
+  display: grid;
+  grid-template-columns: auto 1fr;
   min-height: 100vh;
 }
 
-.top-nav {
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.nav-container {
-  max-width: 1600px;
-  margin: 0 auto;
+.app-main {
+  min-width: 0;
   display: flex;
-  align-items: center;
-  padding: 0 2rem;
-  height: 70px;
+  flex-direction: column;
 }
 
-.nav-container > .nav-tabs {
-  margin-left: auto;
-  margin-right: 1rem;
-}
-
-.nav-container > .language-switcher {
-  margin-right: 1rem;
-}
-
-.logo {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-}
-
-.logo h1 {
-  font-size: 1.375rem;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: -0.025em;
-}
-
-.subtitle {
-  font-size: 0.813rem;
-  color: #64748b;
-  font-weight: 400;
-  padding-left: 0.75rem;
-  border-left: 1px solid #e2e8f0;
-}
-
-.nav-tabs {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.nav-tabs a {
-  padding: 0.625rem 1.25rem;
-  color: #64748b;
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 0.938rem;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.nav-tabs a:hover {
-  color: #0f172a;
-  background: #f1f5f9;
-}
-
-.nav-tabs a.active {
-  color: #2563eb;
-  background: #eff6ff;
-}
-
-.nav-tabs a.active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #2563eb;
-}
-
-.main-content {
+.app-content {
   flex: 1;
-  max-width: 1600px;
   width: 100%;
+  max-width: var(--content-max-width);
   margin: 0 auto;
-  padding: 1.5rem 2rem;
+  padding: var(--space-8) var(--content-gutter);
 }
 
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: var(--z-backdrop);
+}
+
+/* Compact: the rail is out of flow (fixed) so it can grow into an overlay;
+   this column reserves its collapsed width and the content never reflows. */
+.app-shell.mode-compact { grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr); }
+.app-shell.mode-compact .app-main { grid-column: 2; }
+
+/* Phone: sidebar is an off-canvas drawer. Keep in sync with breakpoints.js */
+@media (max-width: 639.98px) {
+  .app-shell { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- Page header ---- */
 .page-header {
-  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-6);
 }
 
 .page-header h2 {
-  font-size: 1.875rem;
-  font-weight: 700;
-  color: #0f172a;
-  margin-bottom: 0.375rem;
-  letter-spacing: -0.025em;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--color-text);
 }
 
 .page-header p {
-  color: #64748b;
-  font-size: 0.938rem;
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
 }
 
+/* ---- Stat tiles ---- */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
 .stat-card {
-  background: white;
-  padding: 1.25rem;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .stat-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-label {
-  color: #64748b;
-  font-size: 0.875rem;
-  font-weight: 600;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.625rem;
+  letter-spacing: 0.04em;
 }
 
 .stat-value {
-  font-size: 2.25rem;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: -0.025em;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--color-text);
 }
 
-.stat-card.warning .stat-value {
-  color: #ea580c;
-}
+/* Color semantics preserved from the previous design */
+.stat-card.warning .stat-value { color: var(--color-warning); }
+.stat-card.success .stat-value { color: var(--color-success); }
+.stat-card.danger .stat-value { color: var(--color-danger); }
+.stat-card.info .stat-value { color: var(--color-info); }
 
-.stat-card.success .stat-value {
-  color: #059669;
-}
-
-.stat-card.danger .stat-value {
-  color: #dc2626;
-}
-
-.stat-card.info .stat-value {
-  color: #2563eb;
-}
-
+/* ---- Cards ---- */
 .card {
-  background: white;
-  border-radius: 10px;
-  padding: 1.25rem;
-  border: 1px solid #e2e8f0;
-  margin-bottom: 1.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 0.875rem;
-  border-bottom: 1px solid #e2e8f0;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .card-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: -0.025em;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--color-text);
 }
 
-.table-container {
-  overflow-x: auto;
-}
+/* ---- Tables ---- */
+.table-container { overflow-x: auto; }
 
 table {
   width: 100%;
   border-collapse: collapse;
+  font-size: var(--text-sm);
 }
 
-thead {
-  background: #f8fafc;
-  border-top: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
-}
+thead { background: var(--color-surface-muted); }
 
 th {
   text-align: left;
-  padding: 0.5rem 0.75rem;
-  font-weight: 600;
-  color: #475569;
-  font-size: 0.75rem;
+  padding: var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
 }
 
 td {
-  padding: 0.5rem 0.75rem;
-  border-top: 1px solid #f1f5f9;
-  color: #334155;
-  font-size: 0.875rem;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
-tbody tr {
-  transition: background-color 0.15s ease;
-}
+tbody tr { transition: background-color var(--transition-fast); }
+tbody tr:hover { background: var(--color-surface-muted); }
+tbody tr:last-child td { border-bottom: 0; }
 
-tbody tr:hover {
-  background: #f8fafc;
-}
-
+/* ---- Badges ---- */
 .badge {
-  display: inline-block;
-  padding: 0.313rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
-.badge.success {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.badge.warning {
-  background: #fed7aa;
-  color: #92400e;
-}
-
-.badge.danger {
-  background: #fecaca;
-  color: #991b1b;
-}
-
-.badge.info {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
+.badge.success,
 .badge.increasing {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
-.badge.decreasing {
-  background: #fecaca;
-  color: #991b1b;
-}
-
+.badge.info,
+.badge.low,
 .badge.stable {
-  background: #e0e7ff;
-  color: #3730a3;
+  background: var(--color-info-soft);
+  color: var(--color-info);
 }
 
-.badge.high {
-  background: #fecaca;
-  color: #991b1b;
-}
-
+.badge.warning,
 .badge.medium {
-  background: #fed7aa;
-  color: #92400e;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
-.badge.low {
-  background: #dbeafe;
-  color: #1e40af;
+.badge.danger,
+.badge.decreasing,
+.badge.high {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
-.loading {
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-height);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--color-accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--color-accent-hover); }
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--color-surface-muted); }
+.btn-ghost { background: transparent; color: var(--color-text-muted); }
+.btn-ghost:hover:not(:disabled) { background: var(--color-surface-muted); color: var(--color-text); }
+.btn-danger { background: var(--color-danger); color: #fff; }
+.btn-danger:hover:not(:disabled) { background: #b91c1c; }
+
+/* ---- Loading / empty / error ---- */
+.loading,
+.empty-state {
+  padding: var(--space-10) var(--space-6);
   text-align: center;
-  padding: 3rem;
-  color: #64748b;
-  font-size: 0.938rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.empty-state {
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
 }
 
 .error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
-  padding: 1rem;
-  border-radius: 8px;
-  margin: 1rem 0;
-  font-size: 0.938rem;
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
 }
 </style>

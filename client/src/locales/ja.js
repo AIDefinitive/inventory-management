@@ -6,6 +6,16 @@ export default {
     orders: '注文',
     finance: '財務',
     demandForecast: '需要予測',
+    restocking: '補充発注',
+    reports: 'レポート',
+    sections: {
+      operations: 'オペレーション',
+      insights: 'インサイト'
+    },
+    mainNavigation: 'メインナビゲーション',
+    collapseSidebar: 'サイドバーを折りたたむ',
+    expandSidebar: 'サイドバーを展開',
+    openMenu: 'メニューを開く',
     companyName: '触媒コンポーネンツ',
     subtitle: '在庫管理システム'
   },
@@ -103,6 +113,18 @@ export default {
 
   // Orders
   orders: {
+    submittedOrders: '発注済み注文',
+    submittedEmpty: '補充発注はまだありません。',
+    submittedLoadFailed: '発注済み注文の読み込みに失敗しました',
+    submittedTable: {
+      orderNumber: '注文番号',
+      submittedDate: '発注日',
+      items: '品目',
+      totalValue: '合計金額',
+      leadTime: 'リードタイム（日）',
+      expectedDelivery: '納品予定日',
+      status: 'ステータス'
+    },
     title: '注文',
     description: '顧客注文の表示と管理',
     allOrders: 'すべての注文',
@@ -188,6 +210,39 @@ export default {
     }
   },
 
+  // Restocking
+  restocking: {
+    title: '補充発注',
+    description: '予算内で、需要トレンドと不足数を基にした購入を提案します',
+    budget: '予算',
+    budgetSlider: '補充予算',
+    recommendedTotal: '推奨合計',
+    remainingBudget: '残予算',
+    itemsAndUnits: '品目 / 数量',
+    itemsUnits: '{items}品目 / {units}個',
+    fullRestockCost: '全量補充コスト: {amount}',
+    recommendations: '推奨リスト',
+    table: {
+      sku: 'SKU',
+      itemName: '品目',
+      trend: 'トレンド',
+      demandGap: '需要不足数',
+      recommendedQty: '推奨数量',
+      unitCost: '単価',
+      lineTotal: '小計',
+      leadTime: 'リードタイム（日）'
+    },
+    emptyTitle: 'この予算では推奨はありません',
+    emptyHint: '予算を増やすと推奨購入が表示されます。',
+    nothingToRestock: '現在、補充が必要な品目はありません。',
+    placeOrder: '発注する',
+    placing: '発注中...',
+    orderSuccess: '注文 {orderNumber} を発注しました。納品予定日: {date}',
+    viewOrders: '注文画面で確認',
+    orderFailed: '発注に失敗しました',
+    loadFailed: '推奨の読み込みに失敗しました'
+  },
+
   // Filters
   filters: {
     timePeriod: '期間',
@@ -200,6 +255,7 @@ export default {
 
   // Statuses
   status: {
+    submitted: '発注済み',
     delivered: '配達済み',
     shipped: '出荷済み',
     processing: '処理中',
