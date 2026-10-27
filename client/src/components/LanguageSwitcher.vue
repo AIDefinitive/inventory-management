@@ -89,60 +89,44 @@ const selectLanguage = (locale) => {
 </script>
 
 <style scoped>
-.language-switcher {
-  position: relative;
-}
+.language-switcher { position: relative; }
 
+/* Shares border/radius/height/hover with ProfileMenu's button so top-bar controls match */
 .language-button {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.875rem;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  gap: var(--space-2);
+  height: var(--control-height);
+  padding: 0 var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
   font-family: inherit;
-  font-size: 0.875rem;
-  color: #334155;
+  font-size: var(--text-sm);
+  color: var(--color-text);
 }
+.language-button:hover { background: var(--color-surface-muted); border-color: var(--color-border-strong); }
+.language-button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
-.language-button:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
+.globe-icon { color: var(--color-text-muted); flex-shrink: 0; width: 18px; height: 18px; }
+.language-label { font-weight: var(--weight-medium); }
+.chevron { color: var(--color-text-muted); transition: transform var(--transition-fast); flex-shrink: 0; }
+.chevron-open { transform: rotate(180deg); }
 
-.globe-icon {
-  color: #64748b;
-  flex-shrink: 0;
-}
-
-.language-label {
-  font-weight: 500;
-}
-
-.chevron {
-  color: #64748b;
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-}
-
-.chevron-open {
-  transform: rotate(180deg);
-}
-
+/* z-index sits above sticky top bar / filter bar but below modals (--z-modal) */
 .dropdown-menu {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: calc(100% + var(--space-2));
   right: 0;
   min-width: 160px;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  overflow: hidden;
+  padding: var(--space-1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: calc(var(--z-modal) - 10);
 }
 
 .dropdown-item {
@@ -150,34 +134,27 @@ const selectLanguage = (locale) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   background: none;
   border: none;
+  border-radius: var(--radius-md);
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background var(--transition-fast);
   font-family: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #334155;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
 }
+.dropdown-item:hover { background: var(--color-surface-muted); }
+.dropdown-item.active { background: var(--color-accent-soft); color: var(--color-accent); }
+.language-name { flex: 1; }
+.check-icon { color: var(--color-accent); flex-shrink: 0; }
 
-.dropdown-item:hover {
-  background: #f8fafc;
-}
-
-.dropdown-item.active {
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.language-name {
-  flex: 1;
-}
-
-.check-icon {
-  color: #2563eb;
-  flex-shrink: 0;
+/* Narrow top bar: drop the text label, keep globe + chevron */
+@media (max-width: 479px) {
+  .language-label { display: none; }
+  .language-button { padding: 0 var(--space-2); }
 }
 </style>
